@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hemostatic seal rig — wound section</title>
+<style>
+:root{--bg:#f6f6f6;--ink:#1E2A36;--muted:#5A6B7B;--line:#34495E;--panel:#c7c7c7;--accent:#A4161A;}
+*{box-sizing:border-box}
+body{margin:0;padding:18px 20px;background:var(--bg);color:var(--ink);font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif}
+h1{font-size:18px;font-weight:600;margin:0 0 4px;letter-spacing:.2px}
+.sub{font-size:13px;color:var(--muted);margin:0 0 12px}
+#wrap{position:relative;width:100%;height:calc(100vh - 200px);min-height:420px;touch-action:none;cursor:grab;overflow:hidden;background:#252525;border:1px solid #CBD3DB;border-radius:6px}
+#c{width:100%;height:100%;display:block}
+#labels{position:absolute;inset:0;pointer-events:none}
+.lbl{position:absolute;left:0;top:0;font-size:11.5px;white-space:nowrap;padding:2px 7px;border-radius:3px;background:var(--panel);border:1px solid var(--line);color:var(--ink);transform:translate(-50%,-100%);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.lbl.below{transform:translate(-50%,0)}
+.bar{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.bar span.t{font-size:12px;color:var(--muted);margin-right:4px;text-transform:uppercase;letter-spacing:.6px}
+button{font:inherit;font-size:13px;padding:6px 12px;border-radius:4px;border:1px solid #9AA8B5;background:#fff;color:var(--ink);cursor:pointer}
+button:hover{background:#E3E8ED}
+button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+button:focus-visible{outline:2px solid #2E6F95;outline-offset:2px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--muted)}
+.sw{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;vertical-align:-1px;border:1px solid rgba(0,0,0,.15)}
+#state{font-size:13px;margin-top:8px;color:var(--ink)}
+</style>
+</head>
+<body>
+<h1>Hemostatic seal rig — wound section detail</h1>
+<p class="sub">Pressure relief, tourniquet valve, flow meter 1, bypass around the wound branches, selector, check valves and merge.</p>
+<div id="wrap"><canvas id="c"></canvas><div id="labels"></div></div>
+<div class="bar">
+<span class="t">Mode</span>
+<button class="md" data-m="-1">Idle (bypass only)</button><button class="md" data-m="0">Run branch 1</button><button class="md" data-m="1">Run branch 2</button><button class="md" data-m="2">Run branch 3</button><button class="md" data-m="3">Run branch 4</button>
+</div>
+<div class="bar">
+<span class="t">View</span>
+<button id="bLab">Hide labels</button><button id="bReset">Reset view</button>
+</div>
+<div id="state"></div>
+<div class="legend">
+<span><span class="sw" style="background:#F1FAEE"></span>Hardware</span>
+<span><span class="sw" style="background:#457B9D"></span>Instruments</span>
+<span><span class="sw" style="background:#A8DADC"></span>Tissue analog</span>
+<span><span class="sw" style="background:#387f4b"></span>Gel</span>
+<span><span class="sw" style="background:#E63946"></span>Active flow</span>
+<span><span class="sw" style="background:#C9D1D9"></span>Closed line</span>
+<span><span class="sw" style="background:#F4A261"></span>Open valve</span>
+<span><span class="sw" style="background:#6B7785"></span>Closed valve</span>
+<span>Drag to rotate · scroll to zoom</span>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+const wrap=document.getElementById('wrap'),canvas=document.getElementById('c'),labelsEl=document.getElementById('labels');
+const C={plate:0x424547,hw:0xF1FAEE,inst:0x457B9D,tissue:0xA8DADC,gel:0x387f4b,blood:0xE63946,idle:0xC9D1D9,edge:0x34495E,glass:0x9CC3D5,open:0x3E9B5F,shut:0x8A96A3};
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(38,1,0.1,100);
+scene.add(new THREE.AmbientLight(0xffffff,0.7));
+const dl=new THREE.DirectionalLight(0xffffff,0.6);dl.position.set(5,9,7);scene.add(dl);
+const labels=[];
+function label(text,x,y,z,below){const d=document.createElement('div');d.className='lbl'+(below?' below':'');d.textContent=text;labelsEl.appendChild(d);labels.push({el:d,p:new THREE.Vector3(x,y,z)});}
+function box(w,h,d,color,x,y,z,op){const g=new THREE.BoxGeometry(w,h,d);const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({color,transparent:op<1,opacity:op,depthWrite:op>=1}));m.position.set(x,y,z);scene.add(m);const e=new THREE.LineSegments(new THREE.EdgesGeometry(g),new THREE.LineBasicMaterial({color:C.edge,transparent:true,opacity:0.6}));e.position.copy(m.position);scene.add(e);return m;}
+function seg(pts){const p=new THREE.CurvePath();for(let i=0;i<pts.length-1;i++)p.add(new THREE.LineCurve3(new THREE.Vector3(...pts[i]),new THREE.Vector3(...pts[i+1])));return p;}
+function tube(pts,color,op,r){const m=new THREE.Mesh(new THREE.TubeGeometry(seg(pts),80,r||0.07,10,false),new THREE.MeshLambertMaterial({color,transparent:true,opacity:op}));scene.add(m);return m;}
+function coil(x,z,c){const m=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,0.3,16),new THREE.MeshLambertMaterial({color:c||C.shut}));m.position.set(x,0.32,z);scene.add(m);return m;}
+
+box(14,0.1,7.4,C.plate,1.2,-0.45,-0.1,1);
+const ZB=-2.8, TX=3.6, RX=-3.6;
+tube([[7.4,0,0],[TX,0,0]],C.blood,0.7,0.09);
+const toSel=tube([[TX,0,0],[3,0,0]],C.idle,0.55,0.09);
+const fromMerge=tube([[-3,0,0],[RX,0,0]],C.idle,0.55,0.09);
+tube([[RX,0,0],[-4.6,0,0]],C.blood,0.7,0.09);
+const byT=tube([[TX,0,0],[TX,0,ZB],[RX,0,ZB],[RX,0,0]],C.blood,0.6,0.09);
+tube([[6.6,0,0],[6.6,0,2.7]],C.idle,0.5,0.07);
+label('From pump',7.3,0.25,0);
+label('To flow meter 2',-4.5,0.25,0);
+box(0.45,0.45,0.45,C.hw,6.6,0,1.7,1);label('Pressure relief (to reservoir)',6.6,0.45,1.7);
+box(0.7,0.6,0.6,C.hw,5.7,0,0,1);const tq=coil(5.7,0,C.open);label('Tourniquet pinch valve',5.7,0.7,0);
+box(0.8,0.5,0.5,C.inst,4.6,0,0,1);label('Flow meter 1 + P1',4.6,-0.4,0,true);
+box(0.35,0.35,0.35,C.hw,1.6,0,ZB,1);const byCoil=coil(1.6,ZB);label('Bypass valve (NO)',1.6,0.6,ZB);
+box(0.5,0.4,0.4,C.hw,-1.6,0,ZB,1);label('Needle valve (matches branch)',-1.6,0.5,ZB);
+label('Bypass',0,0.25,ZB);
+label('Tee',TX,0.3,0);label('Tee',RX,0.3,0);
+box(0.6,0.6,4.0,C.hw,3,0,0,1);label('Selector manifold',3,-0.4,1.9,true);
+box(0.6,0.6,4.0,C.hw,-3,0,0,1);label('Merge manifold',-3,-0.4,1.9,true);
+const Z=[-1.5,-0.5,0.5,1.5],GEL=['none','pre','pre','live'],NAMES=['No gel','Pre-applied','Pre-applied','Live-applied'];
+const bt=[],coils=[];
+Z.forEach((z,i)=>{
+bt.push(tube([[3,0,z],[-3,0,z]],C.idle,0.5));
+box(0.35,0.35,0.35,C.hw,2.1,0,z,1);coils.push(coil(2.1,z));
+box(1.6,0.8,0.8,C.tissue,0,0,z,0.6);
+const ch=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.4,12),new THREE.MeshLambertMaterial({color:C.blood}));ch.position.set(0,0.2,z);scene.add(ch);
+if(GEL[i]!=='none'){const g=new THREE.Mesh(new THREE.SphereGeometry(0.22,24,24),new THREE.MeshLambertMaterial({color:C.gel}));g.scale.set(1,0.55,1);g.position.set(0,0.4,z);scene.add(g);}
+if(GEL[i]==='live'){const s=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.9,14),new THREE.MeshLambertMaterial({color:C.hw}));s.position.set(0,1.05,z);scene.add(s);const n=new THREE.Mesh(new THREE.ConeGeometry(0.07,0.18,14),new THREE.MeshLambertMaterial({color:C.hw}));n.rotation.x=Math.PI;n.position.set(0,0.52,z);scene.add(n);}
+const cv=new THREE.Mesh(new THREE.ConeGeometry(0.16,0.35,16),new THREE.MeshLambertMaterial({color:C.hw}));cv.rotation.z=Math.PI/2;cv.position.set(-2.1,0,z);scene.add(cv);
+label('B'+(i+1)+' · '+NAMES[i],1.15,0.2,z);});
+label('Isolation solenoid',2.1,0.85,1.5);
+label('Syringe (live gel)',0,1.6,1.5);
+label('Gelatin tissue block',0,-0.45,1.5,true);
+label('Check valve',-2.1,0.25,1.5);
+box(2.4,1.9,4.2,C.glass,0,0.3,0,0.07);label('Sealed wound cell',-1.0,1.35,-2.1);
+const idlePath=seg([[7.4,0,0],[TX,0,0],[TX,0,ZB],[RX,0,ZB],[RX,0,0],[-4.6,0,0]]);
+let runPath=null;
+const N=26,pm=new THREE.MeshLambertMaterial({color:C.blood}),parts=[];
+for(let i=0;i<N;i++){const s=new THREE.Mesh(new THREE.SphereGeometry(0.07,10,10),pm);scene.add(s);parts.push(s);}
+const stateEl=document.getElementById('state');let mode=-1;
+function setMode(m){mode=m;const run=m>=0;
+[toSel,fromMerge].forEach(t=>{t.material.color.setHex(run?C.blood:C.idle);t.material.opacity=run?0.65:0.5;});
+byT.material.color.setHex(run?C.idle:C.blood);byT.material.opacity=run?0.45:0.6;
+bt.forEach((t,j)=>{t.material.color.setHex(j===m?C.blood:C.idle);t.material.opacity=j===m?0.65:0.45;});
+coils.forEach((c,j)=>c.material.color.setHex(j===m?C.open:C.shut));
+byCoil.material.color.setHex(run?C.shut:C.open);
+if(run){const z=Z[m];runPath=seg([[7.4,0,0],[3,0,0],[3,0,z],[-3,0,z],[-3,0,0],[-4.6,0,0]]);}
+stateEl.textContent=run?('Run: branch '+(m+1)+' ('+NAMES[m].toLowerCase()+') solenoid opens first, then the bypass valve closes; the tourniquet ramps the wound to arterial pressure.'):'Idle: all branch solenoids closed, bypass valve open. Flow passes both flow meters through the bypass, so they stay primed and bubble-free.';
+document.querySelectorAll('.md').forEach(b=>b.classList.toggle('on',+b.dataset.m===m));}
+document.querySelectorAll('.md').forEach(b=>b.onclick=()=>setMode(+b.dataset.m));
+setMode(-1);
+const target=new THREE.Vector3(1.2,0,-0.4);let th=0.55,ph=0.95,rad=14;
+function setCam(){camera.position.set(target.x+rad*Math.sin(ph)*Math.sin(th),target.y+rad*Math.cos(ph),target.z+rad*Math.sin(ph)*Math.cos(th));camera.lookAt(target);}
+let W=1,H=1;function resize(){W=wrap.clientWidth;H=wrap.clientHeight;renderer.setSize(W,H,false);camera.aspect=W/H;camera.updateProjectionMatrix();}
+new ResizeObserver(resize).observe(wrap);resize();setCam();
+let drag=false,lx=0,ly=0;
+wrap.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;wrap.style.cursor='grabbing';wrap.setPointerCapture(e.pointerId);});
+wrap.addEventListener('pointermove',e=>{if(!drag)return;th-=(e.clientX-lx)*0.008;ph=Math.min(1.45,Math.max(0.15,ph-(e.clientY-ly)*0.008));lx=e.clientX;ly=e.clientY;setCam();});
+wrap.addEventListener('pointerup',()=>{drag=false;wrap.style.cursor='grab';});
+wrap.addEventListener('wheel',e=>{e.preventDefault();rad=Math.min(26,Math.max(5,rad*(1+e.deltaY*0.001)));setCam();},{passive:false});
+let showLab=true,t=0;
+document.getElementById('bLab').onclick=function(){showLab=!showLab;labelsEl.style.display=showLab?'block':'none';this.textContent=showLab?'Hide labels':'Show labels';};
+document.getElementById('bReset').onclick=()=>{th=0.55;ph=0.95;rad=14;setCam();};
+const v=new THREE.Vector3();
+function loop(){t=(t+0.0016)%1;const p=mode>=0?runPath:idlePath;
+parts.forEach((s,i)=>s.position.copy(p.getPointAt((t+i/N)%1)));
+renderer.render(scene,camera);
+if(showLab)labels.forEach(l=>{v.copy(l.p).project(camera);if(v.z>1){l.el.style.display='none';return;}l.el.style.display='block';l.el.style.left=((v.x+1)/2*W)+'px';l.el.style.top=((1-v.y)/2*H)+'px';});
+requestAnimationFrame(loop);}
+loop();
+})();
+</script>
+</body>
+</html>
