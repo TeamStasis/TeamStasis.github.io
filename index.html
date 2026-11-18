@@ -19,38 +19,41 @@
   --bg:#0f1319; --surface:#171d26; --fg:#eef1f5; --muted:#9aa6b6; --line:#2a333f;
   --accent:#4068e0; --accent-ink:#0f1319; color-scheme:dark }
 
-body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px;line-height:1.5;
-  padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px));padding-block:0}
-.wrap{max-width:720px;margin:0 auto;padding-block:64px;display:flex;flex-direction:column;gap:36px}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px;line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px))}
+.wrap{max-width:820px;margin:0 auto;padding-block:64px;display:flex;flex-direction:column;gap:36px}
+.brand{display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center}
+.logo{width:120px;height:120px;object-fit:contain}
 h1{font-family:var(--display);font-weight:800;font-size:clamp(36px,7vw,56px);line-height:1;margin:0;letter-spacing:-0.02em}
-.models{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:14px;min-width:0}
-.card h2{font-family:var(--display);font-weight:700;font-size:20px;margin:0}
-.btn{display:inline-flex;align-items:center;gap:8px;align-self:flex-start;background:var(--accent);color:var(--accent-ink);text-decoration:none;font-weight:600;padding:10px 16px;border-radius:9px;font-size:15px}
-.btn:hover{filter:brightness(1.08)}
-.btn:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
-.btn svg{width:16px;height:16px}
-.brand{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
-.logo{width:100px;height:100px;object-fit:contain;flex:0 0 auto}
-@media (prefers-reduced-motion:no-preference){.btn{transition:filter .15s}}
+.models{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;
+  display:flex;flex-direction:column;color:inherit;text-decoration:none}
+.card:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.preview{position:relative;aspect-ratio:4/3;background:#252525}
+.preview iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}
+.preview::after{content:"Click for more details";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:rgba(12,36,156,.55);color:#fff;font-family:var(--display);font-weight:700;font-size:18px;opacity:0}
+.card:hover .preview::after,.card:focus-visible .preview::after{opacity:1}
+@media (hover:none){.preview::after{inset:auto 0 0 0;padding:6px;font-size:14px;opacity:1}}
+.card h2{font-family:var(--display);font-weight:700;font-size:20px;margin:0;padding:16px 20px}
+@media (prefers-reduced-motion:no-preference){.preview::after{transition:opacity .2s}}
 </style>
-
+</head>
+<body>
 <div class="wrap">
   <header class="brand">
     <img class="logo" src="logotransparent.png" alt="Team Stasis logo">
     <h1>Team Stasis</h1>
-  </header> 
+  </header>
   <div class="models">
-    <article class="card">
+    <a class="card" href="full.html" target="_blank" rel="noopener">
+      <div class="preview"><iframe src="full.html?preview" title="System overview preview" loading="lazy" tabindex="-1" aria-hidden="true"></iframe></div>
       <h2>System Overview</h2>
-      <a class="btn" href="full.html" target="_blank" rel="noopener">Open model
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 3H3v10h10v-3M9 3h4v4M13 3 7 9"/></svg></a>
-    </article>
-    <article class="card">
+    </a>
+    <a class="card" href="zoom.html" target="_blank" rel="noopener">
+      <div class="preview"><iframe src="zoom.html?preview" title="Wound sites preview" loading="lazy" tabindex="-1" aria-hidden="true"></iframe></div>
       <h2>Wound Sites Compartment</h2>
-      <a class="btn" href="zoom.html" target="_blank" rel="noopener">Open model
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 3H3v10h10v-3M9 3h4v4M13 3 7 9"/></svg></a>
-    </article>
+    </a>
   </div>
 </div>
 </body>
